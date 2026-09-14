@@ -1,0 +1,20 @@
+# ROS 2 Build Artifacts
+build/
+install/
+log/
+COLCON_IGNORE
+
+# Python Artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+*.egg
+
+# Editor / OS Artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.bak
