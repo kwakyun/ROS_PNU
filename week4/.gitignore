@@ -1,0 +1,3 @@
+# Local verification dependencies; do not copy these to Ubuntu.
+.test-deps/
+.test-build/
