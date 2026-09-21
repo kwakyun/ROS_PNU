@@ -32,7 +32,8 @@ zero_offset_rad:
 
 device: /dev/ttyACM0
 baudrate: 1000000
-publish_hz: 5.0
+# Requested timer rate; actual throughput also depends on serial reads.
+publish_hz: 50.0
 
 feetech:
   model: STS3215

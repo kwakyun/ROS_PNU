@@ -62,8 +62,8 @@ joint_state_publisher
 | 파일 | 실행 위치 | 역할 |
 |---|---|---|
 | `hardware_interface.py` | Jetson | Feetech Servo SDK로 실제 관절 위치를 읽는다. |
-| `joint_state_topic_publisher.py` | Jetson | 5 Hz로 `/joint_states`를 발행한다. |
-| `joint_state_topic_listener.py` | WSL | `/joint_states`를 `BEST_EFFORT`로 구독하고 출력한다. |
+| `joint_state_topic_publisher.py` | Jetson | launch에서 전달받은 Reliability로 `/joint_states`를 발행한다. |
+| `joint_state_topic_listener.py` | WSL | `/joint_states`를 `RELIABLE`로 고정하여 구독한다. |
 | `joint_state_service_server.py` | Jetson | 최신 Topic 메시지를 저장하고 `/get_joint_state`에 응답한다. |
 | `joint_state_service_client.py` | WSL | Trigger Service를 한 번 호출하고 응답을 출력한다. |
 | `jetson_bringup.launch.py` | Jetson | Publisher와 Service Server를 함께 실행한다. |
@@ -147,7 +147,7 @@ JointState
 
 1. `JointState` 타입의 Publisher
 2. `joint_state_qos(reliability)`가 반환한 QoS profile
-3. `_publish_state`를 5 Hz, 즉 0.2초 간격으로 호출하는 Timer
+3. `_publish_state`를 반복 호출하는 Timer
 
 `joint_state_topic_listener.py`의 TODO에서는 `JointState` 타입의 Subscription을 만들고
 기존 `_on_state` callback을 연결한다.
@@ -165,9 +165,11 @@ JointState
 - `RELIABLE`은 유실된 데이터를 재전송해 전달 신뢰성을 높인다.
 - Subscriber가 Publisher보다 높은 수준의 Reliability를 요구하면 연결되지 않는다.
 
-이번 코드에서 Publisher의 기본값과 Listener의 설정은 모두 `BEST_EFFORT`이다.
-Service Server가 `/joint_states`를 구독할 때도 launch에서 받은 `reliability` 파라미터로
-Publisher와 호환되는 QoS profile을 만들어야 한다.
+이번 실습에서 PC Listener는 `RELIABLE`로 고정한다. Jetson의 Publisher와 Service
+Server 내부 Subscriber는 launch의 `reliability` 값을 함께 받으며 기본값은
+`RELIABLE`이다. 따라서 launch를 옵션 없이 실행하면 PC Listener와 통신할 수 있다.
+Jetson launch를 `reliability:=best_effort`로 실행하면 PC Listener가 요구하는 수준을
+Publisher가 제공하지 못하므로 Topic 메시지가 전달되지 않는다.
 
 ---
 
@@ -240,7 +242,6 @@ Subscriber의 QoS가 일치하도록 한다.
 | ROS 환경 확인 | `printenv \| grep -E 'ROS_DOMAIN_ID\|ROS_LOCALHOST_ONLY\|RMW_IMPLEMENTATION'` |
 | 노드 발견 확인 | `ros2 node list` |
 | Topic 연결·QoS 확인 | `ros2 topic info --verbose /joint_states` |
-| Topic 주기 확인 | `ros2 topic hz /joint_states` |
 | Service 발견 확인 | `ros2 service list` |
 | Service 타입 확인 | `ros2 service type /get_joint_state` |
 | Trigger 정의 확인 | `ros2 interface show std_srvs/srv/Trigger` |

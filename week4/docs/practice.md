@@ -3,6 +3,10 @@
 > `lecture.md`를 먼저 읽고 아래 실습을 순서대로 수행한다. 명령의 `<Jetson_IP>`는
 > 실제 장비의 IP 주소로 바꾼다.
 
+> 완성 패키지는 `../week04_pc_jetson_comm/`에 있다. 완성본을 사용하는 경우 2~3절의
+> 생성·TODO 작업은 이미 반영되어 있으므로 [Ubuntu 실습 가이드](../UBUNTU_GUIDE.md)에 따라
+> 패키지 전체를 복사하고 빌드한다. 아래 실습 설명은 최신 RELIABLE 기본값을 기준으로 한다.
+
 ## 0. 실습 전 확인
 
 - PC와 Jetson을 같은 유선 네트워크에 연결한다.
@@ -93,6 +97,7 @@ week04_pc_jetson_comm/
 ├── week04_pc_jetson_comm/
 │   ├── __init__.py
 │   ├── hardware_interface.py
+│   ├── qos.py
 │   ├── joint_state_topic_publisher.py
 │   ├── joint_state_topic_listener.py
 │   ├── joint_state_service_server.py
@@ -154,13 +159,13 @@ install_requires=["setuptools", "PyYAML"],
 - `JointState` 타입으로 `/joint_states` 구독
 - 기존 `_on_state` callback 연결
 - QoS depth를 `10`으로 설정
-- Reliability를 `QoSReliabilityPolicy.BEST_EFFORT`로 설정
+- Reliability를 `RELIABLE`로 설정
 
 ### 3-3. Service Server
 
 `joint_state_service_server.py`의 TODO와 Service callback을 완성한다.
 
-- `reliability` 파라미터를 선언하고 기본값을 `best_effort`로 설정
+- `reliability` 파라미터를 선언하고 기본값을 `reliable`로 설정
 - `/joint_states`를 `JointState` 타입으로 구독
 - 기존 `_on_state` callback 연결
 - 전달받은 reliability에 맞는 QoS profile 생성
@@ -240,11 +245,11 @@ ros2 daemon start
 
 ### 5-1. Jetson Bringup 실행
 
-Jetson에서 Publisher와 Service Server를 함께 실행한다.
+Jetson에서 별도의 reliability 옵션 없이 Publisher와 Service Server를 함께 실행한다.
+Launch의 기본값이 `reliable`이므로 두 노드 모두 `RELIABLE`을 사용한다.
 
 ```bash
-ros2 launch week04_pc_jetson_comm jetson_bringup.launch.py \
-  reliability:=best_effort
+ros2 launch week04_pc_jetson_comm jetson_bringup.launch.py
 ```
 
 ### 5-2. WSL에서 노드와 Topic 확인
@@ -267,6 +272,9 @@ Jetson에서 실행 중인 다음 노드와 `/joint_states`가 보여야 한다.
 ros2 run week04_pc_jetson_comm joint_state_topic_listener
 ```
 
+PC Listener는 `RELIABLE`로 고정되어 있으며 관절값이 정상적으로 출력되어야 한다.
+Reliability 비교 실습이 끝날 때까지 이 Listener를 종료하지 않는다.
+
 ### 5-3. WSL에서 Service 확인
 
 ```bash
@@ -287,46 +295,37 @@ ros2 run week04_pc_jetson_comm joint_state_client
 
 ## 6. Reliability 변경 확인
 
-WSL의 구독 명령은 바꾸지 않고, Jetson의 bringup을 서로 다른 reliability 옵션으로
-종료·재실행하면서 수신 결과가 달라지는지 확인한다.
-
-### 6-1. WSL에서 Reliable Subscriber 실행
-
-WSL에서 다음 명령을 실행한 상태로 둔다.
-
-```bash
-ros2 topic echo /joint_states --qos-reliability reliable
-```
-
-### 6-2. Jetson Bringup을 Best Effort로 실행
-
-Jetson에서 기존 bringup을 `Ctrl+C`로 종료한 뒤 다음 옵션으로 다시 실행한다.
+PC Listener의 QoS는 변경하지 않는다. Jetson에서 실행 중인 bringup을 `Ctrl+C`로
+종료하고, CLI의 launch argument만 `best_effort`로 변경하여 다시 실행한다.
 
 ```bash
 ros2 launch week04_pc_jetson_comm jetson_bringup.launch.py \
   reliability:=best_effort
 ```
 
-Publisher가 `BEST_EFFORT`인데 WSL Subscriber가 `RELIABLE`을 요구하므로 WSL에 관절값이
-출력되지 않아야 한다.
+Launch는 같은 `best_effort` 값을 Publisher와 Service Server 내부 Subscriber에 전달한다.
+하지만 PC Listener는 `RELIABLE`로 고정되어 있으므로 Publisher와 QoS가 호환되지 않아
+관절값이 출력되지 않아야 한다.
 
-### 6-3. Jetson Bringup을 Reliable로 변경
-
-Jetson bringup을 다시 `Ctrl+C`로 종료하고 reliability 옵션만 변경하여 실행한다.
+이 상태에서도 Server는 Publisher와 같은 QoS로 구독하므로 Python Client와 CLI 호출은
+성공해야 한다. Trigger Service 자체의 QoS는 이 launch argument로 변경하지 않는다.
 
 ```bash
-ros2 launch week04_pc_jetson_comm jetson_bringup.launch.py \
-  reliability:=reliable
+ros2 run week04_pc_jetson_comm joint_state_client
+ros2 service call /get_joint_state std_srvs/srv/Trigger '{}'
 ```
 
-WSL의 Subscriber는 종료하거나 옵션을 바꾸지 않는다. 같은 WSL 터미널에 관절값이
-출력되기 시작해야 한다. Launch가 같은 reliability 값을 Publisher와 Service Server의
-Subscriber에 전달하므로 `/get_joint_state`도 계속 정상 동작해야 한다.
+Jetson bringup을 `Ctrl+C`로 종료한 뒤 아래 명령으로 복구한다.
+PC의 같은 Listener에서 관절값이 다시 출력되는지 확인한다.
 
+```bash
+ros2 launch week04_pc_jetson_comm jetson_bringup.launch.py reliability:=reliable
+```
 ---
 
 ## 7. Domain ID 변경 확인
 
+PC의 Listener와 echo를 `Ctrl+C`로 종료한다. 환경 변수 변경은 이미 실행 중인 노드에는 적용되지 않는다.
 Jetson은 Domain 30으로 실행한 상태를 유지한다. WSL에서 기존 daemon을 종료하고
 `ROS_DOMAIN_ID`를 31로 변경한 뒤 daemon을 다시 시작한다.
 

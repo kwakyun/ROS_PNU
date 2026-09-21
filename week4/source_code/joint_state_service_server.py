@@ -30,7 +30,7 @@ class JointStateServiceServer(Node):
         super().__init__("joint_state_service_server")
         self._latest: Optional[JointState] = None
 
-        self.declare_parameter("reliability", "best_effort")
+        self.declare_parameter("reliability", "reliable")
         reliability = str(self.get_parameter("reliability").value)
         self._subscription = self.create_subscription(
             JointState, "/joint_states", self._on_state,

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Receive the Jetson joint-state Topic on the PC with BEST_EFFORT QoS."""
+"""Receive the Jetson joint-state Topic on the PC with fixed RELIABLE QoS."""
 
 import math
 
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import (QoSProfile, QoSReliabilityPolicy)
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from sensor_msgs.msg import JointState
+
 
 class JointStateTopicListener(Node):
     """Print remote Topic data at a readable rate."""
@@ -18,7 +19,7 @@ class JointStateTopicListener(Node):
             JointState,
             "/joint_states",
             self._on_state,
-            QoSProfile(depth=10, reliability=QoSReliabilityPolicy.BEST_EFFORT),
+            QoSProfile(depth=10, reliability=QoSReliabilityPolicy.RELIABLE),
         )
 
     def _on_state(self, message: JointState) -> None:
@@ -28,6 +29,7 @@ class JointStateTopicListener(Node):
             for name, position in zip(message.name, message.position)
         )
         self.get_logger().info(values)
+
 
 def main(args=None) -> None:
     rclpy.init(args=args)
