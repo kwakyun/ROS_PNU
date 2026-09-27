@@ -1,0 +1,59 @@
+joint_names:
+  - shoulder_pan
+  - shoulder_lift
+  - elbow_flex
+  - wrist_flex
+  - wrist_roll
+  - gripper
+
+servo_id:
+  shoulder_pan: 1
+  shoulder_lift: 2
+  elbow_flex: 3
+  wrist_flex: 4
+  wrist_roll: 5
+  gripper: 6
+
+sign:
+  shoulder_pan: 1
+  shoulder_lift: 1
+  elbow_flex: 1
+  wrist_flex: 1
+  wrist_roll: 1
+  gripper: 1
+
+zero_offset_rad:
+  shoulder_pan: 0.0
+  shoulder_lift: 0.0
+  elbow_flex: 0.0
+  wrist_flex: 0.0
+  wrist_roll: 0.0
+  gripper: 0.0
+
+limit_rad:
+  shoulder_pan: [-1.91986, 1.91986]
+  shoulder_lift: [-1.74533, 1.74533]
+  elbow_flex: [-1.69, 1.69]
+  wrist_flex: [-1.65806, 1.65806]
+  wrist_roll: [-2.74385, 2.84121]
+  gripper: [-0.174533, 1.74533]
+
+max_vel_rad_s:
+  shoulder_pan: 0.35
+  shoulder_lift: 0.35
+  elbow_flex: 0.35
+  wrist_flex: 0.45
+  wrist_roll: 0.55
+  gripper: 0.60
+
+device: /dev/ttyACM0
+baudrate: 1000000
+publish_hz: 20.0
+control_hz: 30.0
+# 목표에 도달한 뒤에도 마지막 목표를 서보에 다시 쓰는 주기입니다.
+heartbeat_hz: 10.0
+
+feetech:
+  model: STS3215
+  ticks_per_rev: 4096
+  center_tick: 2048

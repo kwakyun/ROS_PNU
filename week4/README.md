@@ -4,6 +4,7 @@
 
 - **배포할 ROS 2 패키지:** `week04_pc_jetson_comm/`
 - **Ubuntu 파일 배치·설치·실습 순서:** [Ubuntu 실습 가이드](UBUNTU_GUIDE.md)
+- **개념·실습·확인 문제 학습 자료:** [4주차 MECE 학습 정리 TXT](4주차_ROS2_분산통신_MECE_학습정리.txt)
 - **증상별 진단·해결 방법:** [실습 트러블슈팅](docs/troubleshooting.md)
 - **제공 파일별 완성 코드:** `source_code/` (배포 패키지와 동일한 내용)
 - **로컬 검증:** `tests/test_week4.py`
