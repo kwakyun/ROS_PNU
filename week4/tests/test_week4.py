@@ -123,7 +123,7 @@ class Week4Tests(unittest.TestCase):
         with patch.object(self.pub, "FeetechReader") as reader:
             reader.return_value.read_positions.return_value = [0.1] * 6
             node = self.pub.JointStatePublisher()
-            self.assertEqual(node.create_timer.call_args.args[0], 0.2)
+            self.assertEqual(node.create_timer.call_args.args[0], 0.02)
             self.assertEqual(node.create_publisher.call_args.args[1], "/joint_states")
             node._publish_state()
             msg = node._publisher.publish.call_args.args[0]
@@ -143,11 +143,12 @@ class Week4Tests(unittest.TestCase):
             node.logger.error.assert_called_once()
             node.destroy_node()
 
-    def test_listener_best_effort_and_units(self):
+    def test_listener_fixed_reliable_and_units(self):
+        Node.overrides = {"reliability": "best_effort"}
         node = self.listener.JointStateTopicListener()
         args = node.create_subscription.call_args.args
         self.assertEqual(args[1], "/joint_states")
-        self.assertEqual((args[3].depth, args[3].reliability), (10, 1))
+        self.assertEqual((args[3].depth, args[3].reliability), (10, 2))
         args[2](self.state())
         self.assertIn("+90.0deg", node.logger.info.call_args.args[0])
 
@@ -169,6 +170,48 @@ class Week4Tests(unittest.TestCase):
             args = node.create_subscription.call_args.args
             self.assertEqual(args[1], "/joint_states")
             self.assertEqual(args[3].reliability, policy)
+
+    def test_default_publisher_and_server_are_reliable(self):
+        with patch.object(self.pub, "FeetechReader"):
+            publisher = self.pub.JointStatePublisher()
+            server = self.server.JointStateServiceServer()
+            self.assertEqual(publisher.parameters["reliability"], "reliable")
+            self.assertEqual(server.parameters["reliability"], "reliable")
+            self.assertEqual(publisher.create_publisher.call_args.args[2].reliability, 2)
+            self.assertEqual(server.create_subscription.call_args.args[3].reliability, 2)
+            publisher.destroy_node()
+            server.destroy_node()
+
+    def test_publisher_and_server_share_qos_and_measured_sample(self):
+        for mode, policy in (("best_effort", 1), ("reliable", 2)):
+            with self.subTest(mode=mode), patch.object(self.pub, "FeetechReader") as reader:
+                Node.overrides = {"reliability": mode}
+                reader.return_value.read_positions.return_value = [math.pi / 2] * 6
+                publisher = self.pub.JointStatePublisher()
+                server = self.server.JointStateServiceServer()
+                self.assertEqual(publisher.create_publisher.call_args.args[2].reliability, policy)
+                self.assertEqual(server.create_subscription.call_args.args[3].reliability, policy)
+                publisher._publish_state()
+                sample = publisher._publisher.publish.call_args.args[0]
+                server.create_subscription.call_args.args[2](sample)
+                response = server._on_request(None, SimpleNamespace())
+                self.assertTrue(response.success)
+                for name in publisher._config.joint_names:
+                    self.assertIn(f"{name}=+1.5708 rad (+90.00 deg)", response.message)
+                publisher.destroy_node()
+                server.destroy_node()
+
+    def test_publisher_closes_hardware_if_timer_creation_fails(self):
+        original_init = Node.__init__
+
+        def fail_timer(node, name):
+            original_init(node, name)
+            node.create_timer.side_effect = RuntimeError("timer creation failed")
+
+        with patch.object(Node, "__init__", fail_timer), patch.object(self.pub, "FeetechReader") as reader:
+            with self.assertRaisesRegex(RuntimeError, "timer creation failed"):
+                self.pub.JointStatePublisher()
+            reader.return_value.close.assert_called_once()
 
     def test_server_rejects_empty_or_mismatched_arrays(self):
         node = self.server.JointStateServiceServer()
@@ -222,6 +265,22 @@ class Week4Tests(unittest.TestCase):
             else:
                 future.result.return_value = result
             self.assertFalse(node.request_once())
+
+    def test_client_main_exit_status_and_cleanup(self):
+        for success in (True, False):
+            with self.subTest(success=success), \
+                    patch.object(self.client, "JointStateServiceClient") as client, \
+                    patch.multiple(self.ros, create=True, init=MagicMock(),
+                                   ok=MagicMock(return_value=True), shutdown=MagicMock()):
+                client.return_value.request_once.return_value = success
+                if success:
+                    self.client.main()
+                else:
+                    with self.assertRaises(SystemExit) as error:
+                        self.client.main()
+                    self.assertEqual(error.exception.code, 1)
+                client.return_value.destroy_node.assert_called_once()
+                self.ros.shutdown.assert_called_once()
 
     def test_read_only_sdk_conversion_errors_and_close(self):
         config = self.hardware.load_joint_config(str(PACKAGE / "config/joints.yaml"))
@@ -327,6 +386,9 @@ class Week4Tests(unittest.TestCase):
         }
         with patch.dict(sys.modules, fake):
             actions = runpy.run_path(str(PACKAGE / "launch/jetson_bringup.launch.py"))["generate_launch_description"]()
+        self.assertEqual(actions[0][0], ("reliability",))
+        self.assertEqual(actions[0][1]["default_value"], "reliable")
+        self.assertEqual(set(actions[0][1]["choices"]), {"best_effort", "reliable"})
         self.assertEqual({a["executable"] for a in actions[1:]}, {"joint_state_publisher", "joint_state_server"})
         for node in actions[1:]:
             self.assertEqual(node["parameters"], [{"reliability": "reliability"}])
@@ -341,7 +403,8 @@ class Week4Tests(unittest.TestCase):
                 destination = PACKAGE / NAME / source.name
             else:
                 continue
-            self.assertEqual(source.read_bytes(), destination.read_bytes(), source.name)
+            self.assertEqual(source.read_text(encoding="utf-8"),
+                             destination.read_text(encoding="utf-8"), source.name)
 
     def test_manifest_and_console_entry_points(self):
         manifest = ET.parse(PACKAGE / "package.xml").getroot()

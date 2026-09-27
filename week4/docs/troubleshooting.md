@@ -49,13 +49,13 @@ Windows PowerShell 명령은 9절에서만 실행한다. 순수 Ubuntu PC는 9�
 | `관절값 읽기 실패`, servo timeout | 전원·서보 ID·baudrate·케이블 | 4-4 |
 | Ping 성공, ROS 노드는 안 보임 | Domain·localhost·RMW·멀티캐스트 | 5-1 |
 | `/joint_states`는 있는데 출력이 없음 | Publisher 수, 읽기 오류, QoS | 5-2 |
-| 5 Hz가 안 나옴, 값이 정지함 | 실제 수신·시리얼 지연·로봇 정지 상태 | 5-3 |
+| 50 Hz가 안 나옴, 값이 정지함 | 실제 수신·시리얼 지연·로봇 정지 상태 | 5-3 |
 | Service 발견 5초 시간 초과 | Server 실행·이름·DDS 발견 | 6-1 |
 | Service 응답 5초 시간 초과 | Server 생존·요청/응답 경로 | 6-2 |
 | `success=False`, 아직 수신하지 못함 | Server의 Topic 수신 | 6-3 |
 | `success=True`인데 값이 오래됨 | Server가 마지막 값을 보관하는 동작 | 6-4 |
 | `ros2 service info`가 없는 명령 | Humble CLI 지원 명령 | 6-5 |
-| BEST_EFFORT에서도 reliable echo가 출력 | 실제 QoS·중복 Publisher | 7-1 |
+| BEST_EFFORT에서도 RELIABLE Listener가 출력 | 실제 QoS·중복 Publisher | 7-1 |
 | Domain 31에서도 Jetson이 보임 | 현재 셸·daemon·실행 중인 노드의 Domain | 7-2 |
 
 <a id="baseline"></a>
@@ -454,7 +454,7 @@ PY
 | `ScannerError`, `ParserError` | 탭 대신 공백, 콜론·들여쓰기·목록 형식 확인 |
 | `KeyError: joint_names` | `joint_names` 필수 키 복구 |
 | 특정 관절 이름의 `KeyError` | `joint_names`와 `servo_id`의 이름이 정확히 같은지 확인 |
-| `publish_hz must be ...` | 유한한 양수, 실습 기본 `5.0` 사용 |
+| `publish_hz must be ...` | 유한한 양수, 제공 소스 기준 기본 `50.0` 사용 |
 | `ticks_per_rev must be ...` | 양수 사용, 제공 STS3215 설정은 `4096` |
 | `servo_id values must be ...` | 중복 없는 실제 서보 ID 사용, 제공 설정은 1~6 |
 | `supports ... STS/STS3215` | 모델 설정과 실물 확인. 다른 모델을 STS로 가장해 실행하지 않음 |
@@ -674,10 +674,10 @@ ros2 topic echo /joint_states sensor_msgs/msg/JointState --qos-reliability best_
 ```
 
 정상 데이터 확인 후 `Ctrl+C`로 종료한다. 수신 검사는 BEST_EFFORT로 하고,
-`practice.md` 6절의 불일치 실험에서는 의도대로 RELIABLE echo를 유지한다.
+`practice.md` 6절의 불일치 실험에서는 RELIABLE로 고정된 Python Listener를 유지한다.
 `Could not determine the type`이면 위처럼 타입을 명시할 수 있지만, 발행 자체가 없으면 계속 기다린다.
 
-### 5-3. 5 Hz가 안 나오거나 값이 변하지 않는다
+### 5-3. 50 Hz가 안 나오거나 값이 변하지 않는다
 
 **Jetson과 PC에서 각각:**
 
@@ -693,11 +693,11 @@ ros2 topic info /joint_states --verbose
 
 - 양쪽 모두 느림: Publisher의 읽기 오류, CPU 부하, USB·서보 응답 지연 확인.
 - Jetson은 정상이고 PC만 느림: 네트워크 손실, PC 부하, DDS 경로 확인.
-- 약 10 Hz 등 예상보다 빠름: 중복 Publisher 또는 변경된 YAML 확인.
+- 설정한 50 Hz보다 빠름: 중복 Publisher 또는 변경된 YAML 확인.
 - 값은 같지만 `header.stamp`가 계속 갱신됨: 정지한 로봇의 정상 반복 측정일 수 있음.
 - `header.stamp`까지 고정되거나 새 출력이 멎음: 발행 중단·다른 Publisher·수신 중단 구분.
 
-설치된 YAML의 `publish_hz: 5.0`을 확인한다. 타이머는 0.2초마다 실행되도록 설정되어 있지만
+설치된 YAML의 `publish_hz: 50.0`을 확인한다. 타이머는 0.02초마다 실행되도록 설정되어 있지만
 읽기가 오래 걸리면 이를 충족하지 못할 수 있다. 문제를 숨기기 위해 주파수만 높이지 않는다.
 
 ### 5-4. 다른 조의 값이나 중복 노드가 보인다
@@ -834,10 +834,10 @@ echo $?
 
 호환성 근거: [ROS QoS 문서](https://github.com/ros2/ros2_documentation/blob/humble/source/Concepts/Intermediate/About-Quality-of-Service-Settings.rst).
 
-**PC — 실습 중 그대로 유지할 echo:**
+**PC — 실습 중 그대로 유지할 RELIABLE Listener:**
 
 ```bash
-ros2 topic echo /joint_states --qos-reliability reliable
+ros2 run week04_pc_jetson_comm joint_state_topic_listener
 ```
 
 **Jetson — 이전 Launch를 Ctrl+C로 종료하고 실행:**
@@ -846,17 +846,18 @@ ros2 topic echo /joint_states --qos-reliability reliable
 ros2 launch week04_pc_jetson_comm jetson_bringup.launch.py reliability:=best_effort
 ```
 
-이때 PC echo의 미수신과 incompatible QoS 경고는 예상한 실험 결과다.
-기본 Listener는 BEST_EFFORT이므로 계속 수신할 수 있다.
+이때 PC Listener의 미수신과 incompatible QoS 경고는 예상한 실험 결과다.
+Server는 Publisher와 같은 BEST_EFFORT로 구독하므로 Client 호출은 성공해야 한다.
+데이터 자체를 분리 확인하려면 별도 터미널에서 BEST_EFFORT echo를 사용할 수 있다.
 
 Jetson Launch를 종료한 뒤 `reliability:=reliable`로 재실행하면
-PC의 같은 echo에서 수신이 시작되어야 한다.
+PC의 같은 Listener에서 수신이 다시 시작되어야 한다.
 
 **예상과 다를 때:**
 
-- BEST_EFFORT에서도 echo가 수신: echo에 옵션을 실제로 줬는지, RELIABLE Publisher가 추가로 있는지 확인한다.
+- BEST_EFFORT에서도 Listener가 수신: 이전 BEST_EFFORT Listener 사본을 실행 중인지, RELIABLE Publisher가 추가로 있는지 확인한다.
 - RELIABLE로 바꿨는데 미수신: 새 Launch가 성공했는지, 실제 Topic 데이터가 있는지, PC Domain이 같은지 확인한다.
-- Listener도 미수신: 의도한 QoS 불일치 외에 하드웨어·네트워크 문제가 겹쳤을 가능성이 있다.
+- BEST_EFFORT echo도 미수신: 의도한 QoS 불일치 외에 하드웨어·네트워크 문제가 겹쳤을 가능성이 있다.
 - `reliability must be ...` 또는 launch 인자 오류: 소문자 `best_effort`/`reliable`만 사용한다.
 
 ```bash
@@ -946,7 +947,7 @@ env ROS_DOMAIN_ID=130 ROS_LOCALHOST_ONLY=1 RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
 env ROS_DOMAIN_ID=130 ROS_LOCALHOST_ONLY=1 RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
   ros2 topic pub /joint_states sensor_msgs/msg/JointState \
   '{name: [test_joint], position: [0.5]}' \
-  --rate 5 --qos-reliability best_effort
+  --rate 5 --qos-reliability reliable
 ```
 
 터미널 C의 같은 Client 명령을 다시 실행한다.
@@ -1034,7 +1035,7 @@ Windows 경로의 빌드 결과 대신 WSL 홈의 `~/ros2_ws`에서 만든 결�
 6. Jetson에서 아래 Launch를 한 번만 실행한다.
 
 ```bash
-ros2 launch week04_pc_jetson_comm jetson_bringup.launch.py reliability:=best_effort
+ros2 launch week04_pc_jetson_comm jetson_bringup.launch.py
 ```
 
 PC의 준비된 터미널에서 확인한다.
@@ -1094,8 +1095,8 @@ echo "$DIAG_FILE"
 | Jetson 로컬 JointState 반복 수신 | |
 | PC Listener 반복 수신 | |
 | Python Client 및 CLI 응답 | |
-| BEST_EFFORT Publisher + RELIABLE echo 미수신 | |
-| RELIABLE로 재실행 후 같은 echo 수신 | |
+| BEST_EFFORT Publisher + RELIABLE Listener 미수신, Client 성공 | |
+| RELIABLE로 재실행 후 같은 Listener 수신 | |
 | PC Domain 31에서 Jetson 미발견 | |
 | PC Domain 30 복구 후 재발견 | |
 

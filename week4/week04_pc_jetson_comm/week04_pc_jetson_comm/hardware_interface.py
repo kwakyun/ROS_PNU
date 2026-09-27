@@ -47,7 +47,7 @@ def load_joint_config(path: str) -> JointConfig:
         },
         device=str(raw.get("device", "/dev/ttyACM0")),
         baudrate=int(raw.get("baudrate", 1000000)),
-        publish_hz=float(raw.get("publish_hz", 5.0)),
+        publish_hz=float(raw.get("publish_hz", 50.0)),
         ticks_per_rev=int(feetech.get("ticks_per_rev", 4096)),
         center_tick=int(feetech.get("center_tick", 2048)),
         servo_type=servo_type,

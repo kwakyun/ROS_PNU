@@ -1,0 +1,4 @@
+# ROS-free unit tests and real SDK packets over a fake serial cable.
+PyYAML>=6.0,<7
+setuptools
+vassar-feetech-servo-sdk==1.5.0

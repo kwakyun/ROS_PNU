@@ -144,7 +144,8 @@ nano ~/ros2_ws/src/week04_pc_jetson_comm/config/joints.yaml
 ```
 
 제공 설정은 장치 `/dev/ttyACM0`, baudrate `1000000`, STS3215, 서보 ID `1..6`,
-4096 ticks/rev, 중심 2048, 발행 주기 **5 Hz**다. 이 값들은 실습 장비와 대조해야 한다.
+4096 ticks/rev, 중심 2048, 발행 목표 주기 **50 Hz**다. 제공 소스의 기본 주기를 따르며,
+실제 속도는 시리얼 읽기 시간에 따라 낮아질 수 있다. 이 값들은 실습 장비와 대조해야 한다.
 `sign`과 `zero_offset_rad`는 표시할 각도의 변환값이며 로봇에 보정값을 쓰지 않는다.
 설정 변경 후에는 아래 빌드를 다시 실행한다. 설치된 YAML이 바뀌었는지 직접 확인하는 것이 확실하다.
 
@@ -230,10 +231,11 @@ export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 ### 터미널 A: Jetson에서 Publisher와 Server 실행
 
 ```bash
-ros2 launch week04_pc_jetson_comm jetson_bringup.launch.py reliability:=best_effort
+ros2 launch week04_pc_jetson_comm jetson_bringup.launch.py
 ```
 
-이 터미널은 실행 상태로 둔다. Publisher는 포트를 단독 소유하고 Server는 Topic만 구독한다.
+이 터미널은 실행 상태로 둔다. 기본 Reliability는 `reliable`이다.
+Publisher는 포트를 단독 소유하고 Server는 Topic만 구독한다.
 
 ### 터미널 B: PC에서 Topic 확인 및 Listener 실행
 
@@ -248,7 +250,8 @@ ros2 run week04_pc_jetson_comm joint_state_topic_listener
 
 `/joint_state_publisher`, `/joint_state_service_server`와 `/joint_states`가 보여야 한다.
 Listener에는 6개 관절의 이름과 rad/deg 값이 계속 출력되어야 한다.
-발행 목표 주기는 5 Hz다. 실제 수신 속도는 시리얼 읽기 시간과 네트워크 영향을 받는다.
+Listener는 `RELIABLE`로 고정되어 있다. 발행 목표 주기는 50 Hz이며 실제 수신 속도는
+시리얼 읽기 시간과 네트워크 영향을 받는다.
 
 ### 터미널 C: PC에서 Service 호출
 
@@ -273,26 +276,30 @@ Server는 마지막 메시지를 보관한다. Publisher가 중단되어도 이�
 
 ## 7. QoS 불일치 및 복구
 
-PC의 새 터미널에서 5절 환경을 적용하고 다음 명령을 실행한 채 둔다.
+6절의 PC Listener를 실행한 채로 유지한다. Jetson의 터미널 A를 `Ctrl+C`로 종료한 뒤
+Publisher와 Server의 Reliability를 함께 변경한다.
 
 ```bash
-ros2 topic echo /joint_states --qos-reliability reliable
+ros2 launch week04_pc_jetson_comm jetson_bringup.launch.py reliability:=best_effort
 ```
 
-Jetson의 Publisher가 `best_effort`이면 이 echo에는 관절값이 출력되지 않아야 한다.
-별도로 실행한 기본 Listener는 BEST_EFFORT이므로 계속 받을 수 있다.
+PC Listener는 `RELIABLE`로 고정되어 있으므로 관절값 출력이 멈추어야 한다.
+Jetson Server의 Subscriber는 Publisher와 같은 `BEST_EFFORT`여서 계속 값을 받는다.
+PC의 다른 터미널에서 `joint_state_client`를 실행하면 Service 응답은 계속 성공해야 한다.
+Launch의 `reliability`는 JointState Topic에만 적용되며 Trigger Service QoS는 기본값을 사용한다.
 
-Jetson의 터미널 A를 `Ctrl+C`로 종료한 뒤 다음과 같이 다시 실행한다.
+Jetson Launch를 `Ctrl+C`로 종료한 뒤 다음과 같이 다시 실행한다.
 
 ```bash
 ros2 launch week04_pc_jetson_comm jetson_bringup.launch.py reliability:=reliable
 ```
 
-PC의 같은 echo 터미널에 값이 출력되기 시작해야 한다.
+PC의 같은 Listener 터미널에 값이 다시 출력되어야 한다.
 PC에서 `joint_state_client`도 다시 실행해 Service 응답을 확인한다.
 Server Subscriber에도 같은 reliability가 전달되므로 두 모드에서 모두 동작해야 한다.
-발표자료에는 Listener 쪽을 바꾸는 설명도 있으나, 여기서는 `practice.md`의
-“echo를 유지하고 Jetson 옵션을 바꾸기” 절차를 따른다.
+발표자료 20~21·34쪽에는 이전 BEST_EFFORT 기본값과 Listener 변경 절차가 남아 있다.
+현재 `lecture.md`·`practice.md`와 제공 소스의 “Listener는 RELIABLE 고정,
+Jetson launch argument만 변경” 절차를 기준으로 구현했다.
 
 ## 8. Domain 불일치 및 복구
 
@@ -328,8 +335,8 @@ ros2 run week04_pc_jetson_comm joint_state_client
 - [ ] PC에서 Jetson Ping 및 SSH 연결 성공
 - [ ] 양쪽 `colcon build` 성공 및 실행 파일 네 개 등록 확인
 - [ ] PC Listener가 실제 관절 6개의 값을 수신
-- [ ] BEST_EFFORT Publisher + RELIABLE echo에서 미수신
-- [ ] Publisher를 RELIABLE로 재실행한 뒤 같은 echo가 수신
+- [ ] BEST_EFFORT Publisher + RELIABLE Listener에서 미수신, Client 응답은 성공
+- [ ] Publisher를 RELIABLE로 재실행한 뒤 같은 Listener가 수신
 - [ ] Python Client와 CLI Trigger 호출이 모두 성공
 - [ ] Domain 31에서 Jetson 미발견, 30 복구 후 재발견
 - [ ] 종료 시 각 노드 터미널에서 `Ctrl+C`, 필요하면 `ros2 node list --no-daemon`으로 확인
@@ -337,7 +344,7 @@ ros2 run week04_pc_jetson_comm joint_state_client
 ## 10. 개발 컴퓨터에서 검증한 범위
 
 로컬에서는 ROS 노드를 대체한 단위 테스트와, SDK 1.5.0의 실제 패킷 구현을 사용한
-가상 시리얼 테스트 **17개가 통과**했다. Python 배포물(wheel) 빌드도 성공했고,
+가상 시리얼 테스트 **21개가 통과**했다. Python 배포물(wheel) 빌드도 성공했고,
 모듈·ament 식별 파일·YAML·Launch·실행 진입점 네 개가 포함되는지 검사했다.
 Python 3.8 이상 문법 호환성을 검사했으며, 실제 테스트 실행 인터프리터는 Python 3.12였다.
 물리 로봇이나 현재 PC의 시리얼 포트에는 연결하지 않았다.
@@ -350,7 +357,7 @@ Client 성공·실패·시간 초과·취소, 설정 오류, 패키지 등록, L
 재검증하려면 저장소 최상위에서 실행한다. SDK는 테스트용 가상 시리얼에만 연결된다.
 
 ```bash
-python3 -m pip install --user PyYAML setuptools 'vassar-feetech-servo-sdk==1.5.0'
+python3 -m pip install --user -r week4/tests/requirements.txt
 python3 -m unittest discover -s week4/tests -v
 ```
 

@@ -16,16 +16,14 @@ class JointStatePublisher(Node):
     def __init__(self) -> None:
         super().__init__("joint_state_publisher")
         self._reader = None
-        config_path = (
-            get_package_share_directory("week04_pc_jetson_comm")
-            + "/config/joints.yaml"
-        )
-        self._config = load_joint_config(config_path)
-
-        self.declare_parameter("reliability", "best_effort")
-        reliability = str(self.get_parameter("reliability").value)
-
         try:
+            config_path = (
+                get_package_share_directory("week04_pc_jetson_comm")
+                + "/config/joints.yaml"
+            )
+            self._config = load_joint_config(config_path)
+            self.declare_parameter("reliability", "reliable")
+            reliability = str(self.get_parameter("reliability").value)
             self._publisher = self.create_publisher(
                 JointState, "/joint_states", joint_state_qos(reliability)
             )

@@ -47,6 +47,7 @@ class JointStateServiceClient(Node):
             self.get_logger().error(result)
         return bool(response.success)
 
+
 def main(args=None) -> None:
     """Run one remote service request."""
     rclpy.init(args=args)
