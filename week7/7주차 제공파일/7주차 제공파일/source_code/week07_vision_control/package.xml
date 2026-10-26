@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>week07_vision_control</name>
+  <version>4.0.0</version>
+  <description>Week 7 configurable YOLO Pose camera and pixel topics.</description>
+  <maintainer email="ta@example.com">Embedded Design Lab TA</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+  <depend>ament_index_python</depend>
+  <depend>cv_bridge</depend>
+  <depend>geometry_msgs</depend>
+  <depend>launch</depend>
+  <depend>launch_ros</depend>
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

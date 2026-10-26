@@ -1,0 +1,46 @@
+# 클래스 ID는 아래 목록의 순서(0, 1, 2, ...)이다.
+classes:
+  - name: cube1
+    point_mode: box_center
+    description: "초록색 큐브 전체 Box 중심"
+  - name: cube2
+    point_mode: box_center
+    description: "파란색 큐브 전체 Box 중심"
+  - name: tip
+    point_mode: manual
+    description: "그리퍼 끝에 부착한 원형 마커 중심 (모든 이미지에서 같은 물리적 점)"
+
+camera:
+  source: csi
+  sensor_id: 0
+  capture_width: 1920
+  capture_height: 1080
+  framerate: 30
+  output_width: 640
+  output_height: 480
+  publish_hz: 20.0
+
+# 상대 경로는 이 파일 위치가 아니라 week7/을 기준으로 한다.
+paths:
+  dataset: datasets/week7
+  weights: yolo11n-pose.pt
+  runs: runs
+  model: week07_vision_control/models/vision_pose_best.pt
+
+training:
+  epochs: 100
+  patience: 20
+  batch: 4
+  workers: 2
+  imgsz: 640
+  device: "0"
+  amp: false
+  seed: 7
+  validation_ratio: 0.20
+
+inference:
+  confidence: 0.35
+  keypoint_confidence: 0.35
+  iou: 0.45
+  device: "0"
+  max_detections: 20
