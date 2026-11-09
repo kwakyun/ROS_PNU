@@ -1,0 +1,22 @@
+# Positions are metres in base_link. Cube poses come from models/scene.xml.
+workspace:
+  x: [0.15, 0.40]
+  y: [-0.14, 0.14]
+  eef_z: [0.008, 0.035]  # EEF target Z limits, matching Weeks 11 and 12
+
+initial:
+  # shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper
+  robot_qpos: [-0.0000698067, -1.28085910, 1.65119237, 0.448215072, 0.0, 0.20]
+control:
+  # XYZ action=(1, 0, 1) requests +8 mm X and +5 mm Z before workspace clipping.
+  action_scale_m: [0.008, 0.008, 0.005]
+  frame_skip: 25
+  ik_iterations: 45
+  ik_damping: 0.015
+  max_joint_delta_rad: 0.08  # Smooth the four-joint IK update in this lab.
+
+episode:
+  max_steps: 150
+
+reward:
+  action_cost_scale: 0.01
